@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import rclpy
-import time
-import sys
 import cv2
+import sys
 sys.path.append('/home/robot/colcon_ws/install/tm_msgs/lib/python3.6/site-packages')
 from tm_msgs.msg import *
 from tm_msgs.srv import *
 
+# utils:
+########################################
 # arm client
 def send_script(script):
     arm_node = rclpy.create_node('arm')
@@ -28,7 +29,7 @@ def set_io(state):
 
     while not gripper_cli.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('service not availabe, waiting again...')
-
+    
     io_cmd = SetIO.Request()
     io_cmd.module = 1
     io_cmd.type = 1
@@ -36,6 +37,16 @@ def set_io(state):
     io_cmd.state = state
     gripper_cli.call_async(io_cmd)
     gripper_node.destroy_node()
+############################################
+def closeGrip():
+	set_io(1.0) #1.0 close
+
+def openGrip():
+	set_io(0)
+
+############################################################
+## code ##########################################
+############################################################
 
 def main(args=None):
 
@@ -43,31 +54,51 @@ def main(args=None):
 
     #--- move command by joint angle ---#
     # script = 'PTP(\"JPP\",45,0,90,0,90,0,35,200,0,false)'
+    # script = 'PTP(\"JPP\",_1,_2,_3,_4,_5,_6,_7,_8,0,false)'
 
     #--- move command by end effector's pose (x,y,z,a,b,c) ---#
     # targetP1 = "398.97, -122.27, 748.26, -179.62, 0.25, 90.12"s
+    # targetP1 = "x,y,z,a,b,c"
+    #--- and append to "CPP"
+    #script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
 
     # Initial camera position for taking image (Please do not change the values)
     # For right arm: targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
     # For left  arm: targetP1 = "350.00, 350, 730, -180.00, 0.0, 135.00"
+    Z_safe = 500
     targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
     script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
     send_script(script1)
+    #this will after the last one (duh)
+    targetP2 = "300.00, 100, 500, -180.00, 0.0, 135.00"
+    script2 = "PTP(\"CPP\","+targetP2+",100,200,0,false)"
+    send_script(script2)
+    # but it is better to move inside image_sub when you have the image available...
+
 
 # What does Vision_DoJob do? Try to use it...
-# -------------------------------------------------
+# -------------------------------   ------------------
+    #It runs image_sub, simple as that.
+    #   It kinda calls an image service/node waiting in the robot
+    #   That doesn't clear its memory, so running it again
+    #       will effectively run image_sub again
+    send_script("Vision_DoJob(job1)")
+    cv2.waitKey(1)
     send_script("Vision_DoJob(job1)")
     cv2.waitKey(1)
 
 #--------------------------------------------------
-
-    #set_io(1.0) # 1.0: close gripper, 0.0: open gripper
+    set_io(1.0) # 1.0: close gripper, 0.0: open gripper
     # set_io(0.0)
     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
+    
 
+query=0
+def ourSendScript(script):
+    send_script(script)
+    query = query +1
 
-
-
+    

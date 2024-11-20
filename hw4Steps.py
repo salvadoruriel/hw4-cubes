@@ -10,23 +10,32 @@
 ### Lower arm to z=1
 ### closeGrip()
 ### 
+
 # z_cube = 2.5cm
-# pos1 = (50,50,0)
+# 1 int = 1mm
+# 10cm = 300pixels
+# 1cm = 30 pixels
+# 1mm = 3 pixels
+# z =
 
 #######################################
 #######################################
 ######## Code
-# ArrObjsPosition = ScanObjs()
-# [(x,y,z),... ]
+def main():
+	# ArrObjsPosition = ScanObjs()
+	# [(x,y,z),... ]
 
-# grabObj(cube1)
-# moveTo(pos1)
-# openGrip()
+	# pos1 = (50,50,0)
 
-# grabObj(cube2)
-# moveTo(pos1 + z_cube + 1mm)
-# openGrip()
+	# grabObj(cube1)
+	# moveTo(pos1)
+	# openGrip()
 
-# grabObj(cube3) 
-# moveTo(pos1 + z_cube*2 + 1mm)
-# openGrip()
+	# grabObj(cube2)
+	# moveTo(pos1 + z_cube + 1mm)
+	# openGrip()
+
+	# grabObj(cube3) 
+	# moveTo(pos1 + z_cube*2 + 1mm)
+	# openGrip()
+	return

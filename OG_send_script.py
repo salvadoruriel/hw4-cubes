@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 
 import rclpy
-import time
-import sys
 import cv2
+import sys
 sys.path.append('/home/robot/colcon_ws/install/tm_msgs/lib/python3.6/site-packages')
 from tm_msgs.msg import *
 from tm_msgs.srv import *
@@ -28,7 +27,7 @@ def set_io(state):
 
     while not gripper_cli.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('service not availabe, waiting again...')
-
+    
     io_cmd = SetIO.Request()
     io_cmd.module = 1
     io_cmd.type = 1
@@ -51,23 +50,27 @@ def main(args=None):
     # For right arm: targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
     # For left  arm: targetP1 = "350.00, 350, 730, -180.00, 0.0, 135.00"
     targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
+    targetP2 = "300.00, 100, 500, -180.00, 0.0, 135.00"
     script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+    script2 = "PTP(\"CPP\","+targetP2+",100,200,0,false)"
     send_script(script1)
+    send_script(script2)
 
 # What does Vision_DoJob do? Try to use it...
-# -------------------------------------------------
+# -------------------------------   ------------------
     send_script("Vision_DoJob(job1)")
     cv2.waitKey(1)
-
+    send_script("Vision_DoJob(job1)")
+    cv2.waitKey(1)
 #--------------------------------------------------
-
-    #set_io(1.0) # 1.0: close gripper, 0.0: open gripper
+    
+    set_io(1.0) # 1.0: close gripper, 0.0: open gripper
     # set_io(0.0)
     rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
+    
 
 
-
-
+    
