@@ -21,15 +21,14 @@ cd ~/colcon_ws
 source install/setup.bash
 ros2 run tm_driver tm_driver <robot_ip>
 ```
-right: 192.168.0.69
-left:  192.168.1.103
-**Terminal 2 (2nd)**
+right: 192.168.0.69  
+left:  192.168.1.103  
+**Terminal 2 (2nd)**  
 ```
-#idk... check & make sure
 ros2 run tm_get_status image_talker
 ```
 
-**To run the code:**
+**To run the code:**  
 _**Terminal 3:**_
 ```
 cd ~/workspace2/team14_ws
