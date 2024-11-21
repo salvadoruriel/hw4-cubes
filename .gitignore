@@ -1,4 +1,7 @@
 *.pdf
+*.7z
+*.txt
+output/
 #imgs
 *.jpg
 *.jpeg
