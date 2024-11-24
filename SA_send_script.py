@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+#toIgnore import error in my local environment:
+# pylint: disable=import-error
+# type: ignore[import]
 
 import rclpy
 import cv2
