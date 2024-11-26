@@ -57,6 +57,70 @@ def ourPrint(self='',string="",log=True):
         file.write(f'[{hour}] {string}\n')
 
 
+
+#####################################################
+####################################################
+## Math
+##########
+def cameraToRobotXYZ(x,y):
+    """
+    Input= centroid's x,y values 
+    return = robot tool's x,y coords
+    """
+    # Camera intrinsics
+    fx = 800  # focal length in x direction
+    fy = 800  # focal length in y direction
+    cx = 320  # principal point x-coordinate
+    cy = 240  # principal point y-coordinate
+    # Image centroid and depth
+    u, v = x,y # Object's centroid
+    Z = 1  #Depth, we require another/camera sensor for this value
+    # Back-project to 3D in camera frame
+    X_camera = (u - cx) * Z / fx
+    Y_camera = (v - cy) * Z / fy
+    Z_camera = Z
+    # 3D point in the camera frame
+    P_camera = np.array([X_camera, Y_camera, Z_camera, 1])
+
+    ######### Frames
+    #we saw a ~45 degree rotation from robot to camera
+    theta = np.deg2rad(45)#counter clockwise
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
+    # Rotation around Z-axis:
+    R = np.array([
+        [cos_theta, -sin_theta, 0, 0],
+        [sin_theta,  cos_theta, 0, 0],
+        [0,          0,         1, 0],
+        [0,          0,         0, 1]
+    ])
+    x_base2cam = -135
+    y_base2cam = 360
+    # Translation
+    T = np.array([
+        [1, 0, 0, x_base2cam],#x
+        [0, 1, 0, y_base2cam],#y
+        [0, 0, 1, 1],#z
+        [0, 0, 0, 1]
+    ])
+
+    # Transformation matrix
+    T_camera_to_robot = T @ R
+
+    #From Lesson 06 pg59, Robot vision
+    #We just need the x,y values, so in reality it's
+    #   all about a transformation from a point in the camera's frame
+    #   to a point in the robot's
+    #So:
+    # Transform the point from the camera frame to the robot frame
+    P_robot = T_camera_to_robot @ P_camera
+
+    e_x, e_y, e_z, _ = P_robot
+    print(f"Object position in robot's frame {e_x},{e_y}")
+    return e_x, e_y
+
+
+
 ############################################################
 ############################################################
 ##### Unused

@@ -5,7 +5,7 @@
 ###### Definitions:
 # def moveTo(x,y,z,ANGLE?):
 # def grabObj(x,y,z):
-### Raise arm to z=50
+### raiseArm()
 ### moveTo(x,y)
 ### Lower arm to z=1
 ### closeGrip()
