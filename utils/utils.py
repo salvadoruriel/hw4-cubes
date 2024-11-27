@@ -74,13 +74,14 @@ def cameraToRobotXYZ(x,y):
     cy = 240  # principal point y-coordinate
     # Image centroid and depth
     u, v = x,y # Object's centroid
-    Z = 1  #Depth, we require another/camera sensor for this value
+    Z = 0  #Depth, we require another/camera sensor for this value
     # Back-project to 3D in camera frame
     X_camera = (u - cx) * Z / fx
     Y_camera = (v - cy) * Z / fy
     Z_camera = Z
     # 3D point in the camera frame
-    P_camera = np.array([X_camera, Y_camera, Z_camera, 1])
+    #P_camera = np.array([X_camera, Y_camera, Z_camera, 1])
+    P_camera = np.array([u, v, Z_camera, 1])
 
     ######### Frames
     #we saw a ~45 degree rotation from robot to camera
@@ -96,11 +97,12 @@ def cameraToRobotXYZ(x,y):
     ])
     x_base2cam = -135
     y_base2cam = 360
+    z_base2cam = 0
     # Translation
     T = np.array([
         [1, 0, 0, x_base2cam],#x
         [0, 1, 0, y_base2cam],#y
-        [0, 0, 1, 1],#z
+        [0, 0, 1, z_base2cam],#z
         [0, 0, 0, 1]
     ])
 

@@ -7,6 +7,15 @@ Check Setup.md
 Then go into the folder:
 `cd workspace2/team14_ws`
 
+# ssh
+We can set a connection to the robot with ngrok:
+```
+ngrok config add-authtoken YOUR_AUTHTOKEN
+ngrok tcp 22
+```
+Then just ssh from your machine:
+`ssh <username>@<url> -p <PORT>`
+
 # Robot turning on
 The robot should be on & rdy to operate...
 Try the manual configuration if its not ready &/or doing anything after running all terminals.
