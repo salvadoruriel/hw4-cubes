@@ -52,6 +52,7 @@ def main(args=None):
     # For left  arm: targetP1 = "350.00, 350, 730, -180.00, 0.0, 135.00"
     targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
     script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+
     send_script(script1)
 
 # What does Vision_DoJob do? Try to use it...
