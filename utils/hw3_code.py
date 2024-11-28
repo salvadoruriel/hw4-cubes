@@ -4,12 +4,16 @@ import cv2
 import numpy as np 
 from hw3utils import ( resizeWithAspectRatio, printNBL )
 
+INPUT_FOLDER = "output"
+OUTPUT_FOLDER ="outputUndistorted"
+#for reference:
+#https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_calib3d/py_calibration/py_calibration.html#calibration
 def main():
     CHECKERBOARD = (8, 6) #CORNERS, not squares
     #CHECKERBOARD = (9, 7) #outer
     #CHECKERBOARD = (7, 5) #inner #funky looking..
     #square_size = 1  # Set to square real-world units
-    square_size = 24 #24.5mm #2.45cm
+    square_size = 26#mm
 
     #termination criteria: when to stop,, epsilon size and maximum iterations reached
     #   it will iterate 30 times and stop when the change is lesss than 0.001
@@ -24,8 +28,7 @@ def main():
     objpoints = []  # 3D points in real world
     imgpoints = []  # 2D points in image plane
 
-    inputFolder = "input"
-    images = glob.glob(f"{inputFolder}/*.jpg")
+    images = glob.glob(f"{INPUT_FOLDER}/*.jpg")
 
     for idx,image in enumerate(images):
         printNBL(f"{idx}")
@@ -59,17 +62,17 @@ def main():
     print("\nRotation Vectors:\n", rvecs)
     print("\nTranslation Vectors:\n", tvecs)
 
-    if not os.path.exists("./output"):
-            os.makedirs("./output")
-    with open(f'./output/camera_calibration_data.txt', 'a') as file:
-        file.write("Camera matrix (Intrinsic Parameters):\n", cameraMatrix)
-        file.write("\nDistortion coefficients:\n", dist)
-        file.write("\nRotation Vectors:\n", rvecs)
-        file.write("\nTranslation Vectors:\n", tvecs)
-    np.savez("./output/camera_calibration_data.npz", mtx=cameraMatrix, dist=dist, rvecs=rvecs, tvecs=tvecs)
+    if not os.path.exists(f"./{OUTPUT_FOLDER}"):
+            os.makedirs(f"./{OUTPUT_FOLDER}")
+    with open(f'./{OUTPUT_FOLDER}/camera_calibration_data.txt', 'a') as file:
+        file.write(f"Camera matrix (Intrinsic Parameters):\n {cameraMatrix}")
+        file.write(f"\nDistortion coefficients:\n {dist}")
+        file.write(f"\nRotation Vectors:\n {rvecs}")
+        file.write(f"\nTranslation Vectors:\n {tvecs}")
+    np.savez(f"./{OUTPUT_FOLDER}/camera_calibration_data.npz", mtx=cameraMatrix, dist=dist, rvecs=rvecs, tvecs=tvecs)
 
     # Undistort all images in input+1 directory
-    all_images = glob.glob("hw3-images/*.jpg")
+    all_images = glob.glob(f"{INPUT_FOLDER}/*.jpg")
     print("Undistorting...")
     for idx, image_path in enumerate(all_images):
         printNBL(f"{idx}")
@@ -87,14 +90,14 @@ def main():
 
         printNBL(".")
         filename = os.path.basename(image_path)
-        output_path = f"./output/undistorted_{filename}"
+        output_path = f"./{OUTPUT_FOLDER}/undistorted_{filename}"
 
         cv2.imwrite(output_path, dst)
         print(f"Saved {output_path}")
 
 
 def showData():
-    data = np.load("./output/camera_calibration_data.npz")
+    data = np.load(f"./{OUTPUT_FOLDER}/camera_calibration_data.npz")
 
     camera_matrix = data['mtx']
     print("Camera Matrix:\n", camera_matrix)
