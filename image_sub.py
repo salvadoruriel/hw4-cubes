@@ -18,6 +18,50 @@ import argparse
 import os
 import time
 
+def send_script(script):
+    arm_node = rclpy.create_node('arm')
+    arm_cli = arm_node.create_client(SendScript, 'send_script')
+
+    while not arm_cli.wait_for_service(timeout_sec=1.0):
+        arm_node.get_logger().info('service not availabe, waiting again...')
+
+    move_cmd = SendScript.Request()
+    move_cmd.script = script
+    arm_cli.call_async(move_cmd)
+    arm_node.destroy_node()
+
+def set_io(state):
+    gripper_node = rclpy.create_node('gripper')
+    gripper_cli = gripper_node.create_client(SetIO, 'set_io')
+
+    while not gripper_cli.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('service not availabe, waiting again...')
+
+    io_cmd = SetIO.Request()
+    io_cmd.module = 1
+    io_cmd.type = 1
+    io_cmd.pin = 0
+    io_cmd.state = state
+    gripper_cli.call_async(io_cmd)
+    gripper_node.destroy_node()
+
+#################################################################################
+## Utils
+###########
+###########
+#global vars: #I know... TODO change to something else... but if it works, it works
+###########
+# Assuming taking image initial position
+currPos = (250,250,550,90) #right arm (near door)
+#currPos = Position(350,350,730,90) #left arm
+###########
+#### SOME CONSTANTS:
+###########
+TABLE_Z = 110#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
+Z_CUBE = 25#mm
+###########
+### Printing
 cwd = os.getcwd()
 print(f"cwd: {cwd}")
 outputFolder = f"{cwd}/src/send_script/send_script/output/"
@@ -25,7 +69,7 @@ print(f"outputFolder: {outputFolder}")
 now = time.time()
 today = time.strftime('%Y-%m-%d',time.localtime(now))
 logfile = f"{today}-log.txt"
-
+#Printing & logging
 def ourPrint(self='',string="",log=True):
     now = time.time()
     hour = time.strftime('%H:%M:%S',time.localtime(now))
@@ -38,6 +82,70 @@ def ourPrint(self='',string="",log=True):
     with open(f'{outputFolder}{logfile}', 'a') as file:
         file.write(f'[{hour}] {string}\n')
 
+#### utils:
+def openGrip():
+    set_io(0.0)
+def closeGrip():
+    set_io(1.0) #1.0 close
+
+def moveTo(x,y,z=SAFE_Z,phi=90):
+    """move safely to the position"""
+    global currPos
+
+    targetP = f"{x}, {y}, {z}, -180.00, 0.0, {phi}"
+    script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
+    send_script(script)
+
+    currPos = (x,y,z,phi)
+    return x,y,z,phi #return as current position
+
+def raiseArm():
+    """Raises... the... arm... probs~ iunno"""
+    global currPos
+
+    x,y,_,phi = currPos
+    return moveTo(x,y,SAFE_Z,phi)
+
+def goGrabObj(x,y,z=TABLE_Z,phi=90):
+    """Moves to given position FROM ABOVE & grabs object"""
+    #First raise the arm to avoid collision
+    raiseArm()
+    openGrip()
+    #Now move safely to x,y position of object
+    moveTo(x,y,SAFE_Z,phi)
+    moveTo(x,y,z+100,phi)
+    #lower arm & grab
+    moveTo(x,y,z,phi)
+    closeGrip()
+    return x,y,z,phi
+
+#TODO use an object to represent the x,y,z,phi coordinates:
+#   we could use operator for dicts, itemgetter; dataclasses etc...
+#   To define later on...
+#   or we can just keep using x,y,phi and being careful...
+def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
+    """"Expects positions as [x,y,phi], a tuple should also work"""
+    global currPos
+    e_x,e_y,e_z, e_phi = endPosition
+    
+    ourPrint('',f"[stackObjects] Starting with positions: {positions}")
+    for idx,pos in enumerate(positions):
+        x,y,phi = pos
+        #Go & grab object
+        goGrabObj(x,y,phi=phi)
+        raiseArm()
+
+        #Move (safely above to end position)
+        moveTo(e_x,e_y, SAFE_Z, e_phi)
+
+        #position cube in table & drop
+        extraZ = idx*Z_CUBE +2#mm #extra height to stack them..
+        moveTo(e_x,e_y, e_z+extraZ, e_phi)
+        openGrip()
+    ourPrint('',f"[stackObjects] Finished sending commands...")
+    return currPos
+
+
 class ImageSub(Node):
     def __init__(self, nodeName):
         super().__init__(nodeName)
@@ -49,13 +157,13 @@ class ImageSub(Node):
         self.get_logger().info('Received image')
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(data)
-        # cwd = os.getcwd()
-        # self.get_logger().info(f"directory> {cwd}")
-        # #creates the photo at top level folder, not cwd lol
-        # rightnow = time.time()
-        # formatted = time.strftime('%Y-%m-%d-%H_%M_%S',time.localtime(rightnow))
-        # cv2.imwrite(f"{outputFolder}image{formatted}.jpg",image)
-        # self.get_logger().info("debug")
+        #save photo
+        cwd = os.getcwd()
+        self.get_logger().info(f"directory> {cwd}")
+        rightnow = time.time()
+        formatted = time.strftime('%Y-%m-%d-%H_%M_%S',time.localtime(rightnow))
+        cv2.imwrite(f"{outputFolder}image{formatted}.jpg",image)
+        self.get_logger().info("debug")
         #return
 
 
@@ -163,12 +271,22 @@ class ImageSub(Node):
             ourPrint(self,f"Something happened: {e}")
             x,y,phi = 0,0,0
 
-        # x1 = math.cos(math.radians(50))*x/2
+
         ycam = (((-y)+960))
-        x1=x*0.5851 - 135
-        y1 = ycam*(-1*0.3047) + 360
+
+        # x1 = math.cos(math.radians(50))*x/2
+        
+        self.get_logger().info(f"x : {x}, y: {ycam}")
+        x1= ycam/(2.57) + 150 #160
+        y1 = (-x)/(2.57)  + 512 #506
         #/math.cos(math.radians(50))
-        phi1 = math.degrees(phi) + 135.00
+        e = math.degrees(phi)
+        # phi = phi % 45
+        self.get_logger().info(f"{phi}")
+        if( 30 > phi and phi < 60):
+            angle_offset= 45
+        else: angle_offset = 0
+        phi1 = 90.00 + phi #- angle_offset
         self.get_logger().info(f"{x1}{y1}{phi1}")
         ourPrint(self,"converted values:")
         ourPrint(self,f"x1: {x1}")
@@ -177,41 +295,16 @@ class ImageSub(Node):
         # # 1 mm = 3 pixels
         # # 10 cm = 300 pixels
         
+        stackObjects([[x1,y1,phi1]])
         # script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
         # send_script(script)
-
-        targetP1 = f"{x1}, {y1}, 190, -180.00, 0.0, {phi1}"
-        #targetP1 = "250.00, 250, 190, -180.00, 0.0, 135.00"
-        script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
-        send_script(script1)
+        #set_io(1.0)
+        #targetP1 = f"{x1}, {y1}, 130, -180.00, 0.0, {phi1}"
+        # targetP1 = "250.00, 250, 120, -180.00, 0.0, 135.00"
+        #script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+        #send_script(script1)
+        #set_io(1.0)
 ########################################################################################################################
-
-def send_script(script):
-    arm_node = rclpy.create_node('arm')
-    arm_cli = arm_node.create_client(SendScript, 'send_script')
-
-    while not arm_cli.wait_for_service(timeout_sec=1.0):
-        arm_node.get_logger().info('service not availabe, waiting again...')
-
-    move_cmd = SendScript.Request()
-    move_cmd.script = script
-    arm_cli.call_async(move_cmd)
-    arm_node.destroy_node()
-
-def set_io(state):
-    gripper_node = rclpy.create_node('gripper')
-    gripper_cli = gripper_node.create_client(SetIO, 'set_io')
-
-    while not gripper_cli.wait_for_service(timeout_sec=1.0):
-        node.get_logger().info('service not availabe, waiting again...')
-
-    io_cmd = SetIO.Request()
-    io_cmd.module = 1
-    io_cmd.type = 1
-    io_cmd.pin = 0
-    io_cmd.state = state
-    gripper_cli.call_async(io_cmd)
-    gripper_node.destroy_node()
 
 def main(args=None):
     rclpy.init(args=args)
