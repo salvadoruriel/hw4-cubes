@@ -168,9 +168,10 @@ class ImageSub(Node):
         image = bridge.imgmsg_to_cv2(data)
         # cwd = os.getcwd()
         # self.get_logger().info(f"directory> {cwd}")
-        # #creates the photo at top level folder, not cwd lol
-        # cv2.imwrite(f"{cwd}/output/image3.jpg",image)
-        # self.get_logger().info("debug")
+        rightnow = time.time()
+        formatted = time.strftime('%Y-%m-%d-%H_%M_%S',time.localtime(rightnow))
+        cv2.imwrite(f"{outputFolder}image{formatted}.jpg",image)
+        #return
 
 
         def calculate_centroid_and_angle(moment):
