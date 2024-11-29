@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-#toIgnore import error in my local environment:, Remove from actual file...
-# pylint: disable=import-error
-# type: ignore[import]
 import rclpy
 
 from rclpy.node import Node
@@ -21,9 +18,18 @@ import argparse
 import os
 import time
 
-#################################################################################
-## DEFAULT functions (provided by TA sample)
-###########
+def send_script(script):
+    arm_node = rclpy.create_node('arm')
+    arm_cli = arm_node.create_client(SendScript, 'send_script')
+
+    while not arm_cli.wait_for_service(timeout_sec=1.0):
+        arm_node.get_logger().info('service not availabe, waiting again...')
+
+    move_cmd = SendScript.Request()
+    move_cmd.script = script
+    arm_cli.call_async(move_cmd)
+    arm_node.destroy_node()
+
 def set_io(state):
     gripper_node = rclpy.create_node('gripper')
     gripper_cli = gripper_node.create_client(SetIO, 'set_io')
@@ -39,18 +45,6 @@ def set_io(state):
     gripper_cli.call_async(io_cmd)
     gripper_node.destroy_node()
 
-def send_script(script):
-    arm_node = rclpy.create_node('arm')
-    arm_cli = arm_node.create_client(SendScript, 'send_script')
-
-    while not arm_cli.wait_for_service(timeout_sec=1.0):
-        arm_node.get_logger().info('service not availabe, waiting again...')
-
-    move_cmd = SendScript.Request()
-    move_cmd.script = script
-    arm_cli.call_async(move_cmd)
-    arm_node.destroy_node()
-
 #################################################################################
 ## Utils
 ###########
@@ -58,14 +52,14 @@ def send_script(script):
 #global vars: #I know... TODO change to something else... but if it works, it works
 ###########
 # Assuming taking image initial position
-currPos = (230,230,730,135) #right arm (near door)
-#currPos = Position(350,350,730,135) #left arm
+currPos = (250,250,550,90) #right arm (near door)
+#currPos = Position(350,350,730,90) #left arm
 ###########
 #### SOME CONSTANTS:
 ###########
-TABLE_Z = 135#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+TABLE_Z = 110#mm  #Approx what the gripper to table position would be, 100mm is gripper length
 SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
-Z_CUBE = 25#mm
+Z_CUBE = 14#mm half of 25, as the cubes are grabbed from almost the top
 ###########
 ### Printing
 cwd = os.getcwd()
@@ -90,11 +84,11 @@ def ourPrint(self='',string="",log=True):
 
 #### utils:
 def openGrip():
-    set_io(0)
+    set_io(0.0)
 def closeGrip():
     set_io(1.0) #1.0 close
 
-def moveTo(x,y,z=SAFE_Z,phi=135):
+def moveTo(x,y,z=SAFE_Z,phi=90):
     """move safely to the position"""
     global currPos
 
@@ -112,13 +106,14 @@ def raiseArm():
     x,y,_,phi = currPos
     return moveTo(x,y,SAFE_Z,phi)
 
-def goGrabObj(x,y,z=TABLE_Z,phi=135):
+def goGrabObj(x,y,z=TABLE_Z,phi=90):
     """Moves to given position FROM ABOVE & grabs object"""
     #First raise the arm to avoid collision
     raiseArm()
     openGrip()
     #Now move safely to x,y position of object
     moveTo(x,y,SAFE_Z,phi)
+    moveTo(x,y,z+100,phi)
     #lower arm & grab
     moveTo(x,y,z,phi)
     closeGrip()
@@ -128,7 +123,7 @@ def goGrabObj(x,y,z=TABLE_Z,phi=135):
 #   we could use operator for dicts, itemgetter; dataclasses etc...
 #   To define later on...
 #   or we can just keep using x,y,phi and being careful...
-def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,135]):
+def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
     """"Expects positions as [x,y,phi], a tuple should also work"""
     global currPos
     e_x,e_y,e_z, e_phi = endPosition
@@ -151,10 +146,6 @@ def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,135]):
     return currPos
 
 
-
-#################################################################################
-#################################################################################
-### RUNNING FUNCTION/CODE
 class ImageSub(Node):
     def __init__(self, nodeName):
         super().__init__(nodeName)
@@ -166,11 +157,13 @@ class ImageSub(Node):
         self.get_logger().info('Received image')
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(data)
-        # cwd = os.getcwd()
-        # self.get_logger().info(f"directory> {cwd}")
+        #save photo
+        cwd = os.getcwd()
+        self.get_logger().info(f"directory> {cwd}")
         rightnow = time.time()
         formatted = time.strftime('%Y-%m-%d-%H_%M_%S',time.localtime(rightnow))
         cv2.imwrite(f"{outputFolder}image{formatted}.jpg",image)
+        self.get_logger().info("debug")
         #return
 
 
@@ -219,6 +212,7 @@ class ImageSub(Node):
             contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             #ourPrint(self,f'countours: {contours}',log=False)
+            output = []
             for contour in contours:
                 area = cv2.contourArea(contour)
 
@@ -264,44 +258,62 @@ class ImageSub(Node):
                 self.get_logger().info(f"here")
                 self.get_logger().info(f"Centroid: {adjusted_centroid}, Angle: {angle:.2f} radians")
                 if not x or not y or not angle:
+                    ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
                     return 0,0,0
                 else:
-                    return x,y, angle
+                    #return x,y, angle
+                    output.append([x,y,angle])
             ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
-            return 0,0,0 #
+            return output
 
 
         self.get_logger().info(f"Processing image")
         try:
-            x,y,phi = process_image(image)
+            #x,y,phi = process_image(image)
+            points = process_image(image)
         except Exception as e:
             ourPrint(self,f"Something happened: {e}")
-            x,y,phi = 0,0,0
+            #x,y,phi = 0,0,0
+            points = []
+
 
         # x1 = math.cos(math.radians(50))*x/2
-        ycam = (((-y)+960))
-        x1=x*0.4497+ycam*0.2467 - 135
-        y1 = x*(-0.0705)+ycam*0.2467 + 360
-        #/math.cos(math.radians(50))
-        phi1 = math.degrees(phi) + 135.00
-        self.get_logger().info(f"{x1}{y1}{phi1}")
-        ourPrint(self,"converted values:")
-        ourPrint(self,f"x1: {x1}")
-        ourPrint(self,f"y1: {y1}")
-        ourPrint(self,f"phi1: {phi1}")
+        objectPoints = []
+        for point in points:
+            x, y, phi = point
+            ycam = (((-y)+960))
+            ourPrint(self,f"x : {x}, y: {ycam}")
+            x1= ycam/(2.57) + 150 #160
+            y1 = (-x)/(2.57)  + 512 #506
+            #/math.cos(math.radians(50))
+            e = math.degrees(phi)
+            # phi = phi % 45
+            ourPrint(self,f"phi is {phi}")
+            if( 30 <= phi <= 60):
+                angle_offset= 45
+            else: angle_offset = 0
+            phi1 = 90.00 + phi - angle_offset
+            ourPrint(self,f"{x1}{y1}{phi1}")
+            ourPrint(self,"converted values:")
+            ourPrint(self,f"x1: {x1}")
+            ourPrint(self,f"y1: {y1}")
+            ourPrint(self,f"phi1: {phi1}")
+            objectPoints.append([x1,y1,phi1])
+
         # # 1 mm = 3 pixels
         # # 10 cm = 300 pixels
         
+        #stackObjects([[x1,y1,phi1]])
+        #stackObjects(objectPoints)
         # script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
         # send_script(script)
-
-        x1=80
-        y1=100
-        targetP1 = f"{x1}, {y1}, 490, -180.00, 0.0, {phi1}"
-        #targetP1 = "250.00, 250, 190, -180.00, 0.0, 135.00"
-        script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
-        send_script(script1)
-#################################################################################
+        #set_io(1.0)
+        #targetP1 = f"{x1}, {y1}, 130, -180.00, 0.0, {phi1}"
+        # targetP1 = "250.00, 250, 120, -180.00, 0.0, 135.00"
+        #script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+        #send_script(script1)
+        #set_io(1.0)
+########################################################################################################################
 
 def main(args=None):
     rclpy.init(args=args)
@@ -310,6 +322,5 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-## run##
 if __name__ == '__main__':
     main()

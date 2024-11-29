@@ -2,15 +2,16 @@ import numpy as np
 ## Testing correct output
 
 #from centroid's
-x_in = -100 
-y_in = 456
-#x_in = 0 #should output -135
-#y_in = 0 #should output 360
-x_in = 100 #should output more than -135
-y_in = 100 #should STILL output 360
-#Pixel ratio is ALWAYS needed
-XPIXEL_TO_MM = 1/2
-YPIXEL_TO_MM = 1/2
+x_in, y_in = 782, 735
+#x_in, y_in = 665, 528 # Is 281, 273 on robot
+#x_in, y_in = 145, 179 # Is 215.95, 589.77 on Robot
+#x_in = 0 #should output camera's x origin
+#y_in = 0 #should output camera's y origin
+#Pixel ratio is ALWAYS needed (except for calibration apparently...)
+XPIXEL_TO_MM = 1 /2
+YPIXEL_TO_MM = 1 /2
+XPIXEL_TO_MM = 660/1280 # mm / 1280
+YPIXEL_TO_MM = 495/960 # /960
 
 Z_CUBE = 25#mm
 
@@ -34,6 +35,11 @@ def cameraToRobotXYZ(u,v):
     fy = 3.98157827e+03  #3.98157827e+03 # focal length in y direction
     cx = 6.96680719e+02  #6.96680719e+02 # principal point x-coordinate
     cy = 4.06275392e+02  #4.06275392e+02 # principal point y-coordinate
+    Cam_IntMat = np.array([
+        [fx, 0, cx],
+        [0, fy, cy],
+        [0,  0, 1]
+    ])
     # Image centroid and depth
     Z = 730 - 50 #Depth
     # 730mm Z to End-Effector when taking photo
@@ -48,15 +54,13 @@ def cameraToRobotXYZ(u,v):
     #assuming calibration isn't quite needed...
     P_cameraDirect = np.array([u,v,Z_camera, 1])
     
+
+    """
     #From stack overflow
+    """
     #https://stackoverflow.com/questions/13419605/how-to-map-x-y-pixel-to-world-cordinates
     P_tempcamera = np.array([u, v, 1])
     #multiply intrinsic matrix's inverse to woorld coordinates
-    Cam_IntMat = np.array([
-        [fx, 0, cx],
-        [0, fy, cy],
-        [0,  0, 1]
-    ])
     World_Coord = np.linalg.inv(Cam_IntMat) @ P_tempcamera
     World_Coord = World_Coord * Z_camera
     #Somehow is always the same as the first P_camera lol
@@ -120,7 +124,7 @@ def cameraToRobotXYZ(u,v):
         [-ysin_theta, 0, ycos_theta, 0],
         [0,          0,         0, 1]
     ])
-    ztheta = np.deg2rad(45)
+    ztheta = np.deg2rad(-45)
     zcos_theta = np.cos(ztheta)
     zsin_theta = np.sin(ztheta)
     # Rotation around Z-axis:
@@ -156,8 +160,8 @@ def cameraToRobotXYZ(u,v):
         [0,         0,     0, 1]
     ]) """
 
-    x_base2cam = -135#-135
-    y_base2cam = 360#360
+    x_base2cam = 227#-135
+    y_base2cam = 705#360
     z_base2cam = 0
     # Translation
     T = np.array([
@@ -175,6 +179,21 @@ def cameraToRobotXYZ(u,v):
         [0, 0, 1,                  z_base2cam],#z
         [0, 0, 0,                  1]
     ]) """
+
+    #####
+    """
+    #From stack overflow
+    """
+    #https://stackoverflow.com/questions/7836134/get-3d-coordinates-from-2d-image-pixel-if-extrinsic-and-intrinsic-parameters-are?noredirect=1&lq=1
+    #H = K*[r1, r2, t], 
+    #r1 and r2 being the first two columns of the rotation matrix R
+    #   t is the translation vector.
+    temp = T_camera_to_robot[:, [0,1,3]]
+    temp = np.delete(temp, (3),axis=0)
+    H = Cam_IntMat @ temp
+    projection= H @ [u,v,1]
+    projection = projection / Z
+    print(f"projection:\n {projection}")
 
     #From Lesson 06 pg59, Robot vision
     #We just need the x,y values, so in reality it's

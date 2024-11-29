@@ -56,3 +56,10 @@ cd ~/workspace2/team14_ws
 source install/setup.bash
 ros2 run send_script send_script
 ```
+
+## Debugging
+If the robot is stuck try:
+```
+sudo lsof 
+sudo pkill -9 
+```
