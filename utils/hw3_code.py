@@ -4,7 +4,7 @@ import cv2
 import numpy as np 
 from hw3utils import ( resizeWithAspectRatio, printNBL )
 
-INPUT_FOLDER = "output"
+INPUT_FOLDER = "input"
 OUTPUT_FOLDER ="outputUndistorted"
 #for reference:
 #https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_calib3d/py_calibration/py_calibration.html#calibration
@@ -45,12 +45,12 @@ def main():
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
             imgpoints.append(corners2)
 
-            #cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
-            #cv2.imshow("Image with corners", img)
-            #resImg = resizeWithAspectRatio(img, height=1020)
-            #cv2.imshow("Image with corners", resImg)
+            cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+            cv2.imshow("Image with corners", img)
+            resImg = resizeWithAspectRatio(img, height=1020)
+            cv2.imshow("Image with corners", resImg)
             #waits in ms
-            #cv2.waitKey(1500)
+            cv2.waitKey(1500)
             printNBL("|")
 
     cv2.destroyAllWindows()

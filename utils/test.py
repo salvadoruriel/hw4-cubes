@@ -1,8 +1,12 @@
 import numpy as np
 ## Testing correct output
 
+
+x_base2cam = 227#-135
+y_base2cam = 705#360
+z_base2cam = 0
 #from centroid's
-x_in, y_in = 782, 735
+x_in, y_in = 730,634
 #x_in, y_in = 665, 528 # Is 281, 273 on robot
 #x_in, y_in = 145, 179 # Is 215.95, 589.77 on Robot
 #x_in = 0 #should output camera's x origin
@@ -159,10 +163,6 @@ def cameraToRobotXYZ(u,v):
         [X1*Z0, Y1*Z0, Z1*Z0, 0],
         [0,         0,     0, 1]
     ]) """
-
-    x_base2cam = 227#-135
-    y_base2cam = 705#360
-    z_base2cam = 0
     # Translation
     T = np.array([
         [1, 0, 0, x_base2cam],#x
@@ -212,6 +212,7 @@ def cameraToRobotXYZ(u,v):
     print(f"P_robotDirect:\n ANS = {P_robotDirect}")
 
     e_x, e_y, e_z, _ = P_robot
+    e_x, e_y, e_z, _ = P_robotDirect
     #print(f"Object position in robot's frame: {e_x:.2f}, {e_y:.2f}")
     return e_x, e_y
 
