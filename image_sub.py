@@ -17,6 +17,226 @@ import argparse
 
 import os
 import time
+#Pixel ratio is ALWAYS needed (except for calibration apparently...)
+XPIXEL_TO_MM = 1 /2
+YPIXEL_TO_MM = 1 /2
+#XPIXEL_TO_MM = 660/1280 # mm / 1280
+#YPIXEL_TO_MM = 495/960 # /960
+
+x_base2cam = 226#-135
+y_base2cam = 704.5#360
+z_base2cam = 0
+
+#CROPPED 5%
+#imgWidth = 1216
+#imgH = 912
+#10%
+# imgWidth = 1152
+# imgH = 864
+
+# x_base2cam = 230
+# y_base2cam = 655
+# z_base2cam = 0
+# XPIXEL_TO_MM = 605/imgWidth # mm / 1280
+# YPIXEL_TO_MM = 454/imgH # /960
+
+###############################3
+########################################################
+
+def cameraToRobotXYZ(u,v):
+    """
+    Input= centroid's x,y values as u,v
+    return = robot tool's x,y coords
+    """
+    u= u*XPIXEL_TO_MM
+    v= v*YPIXEL_TO_MM
+    #camera size:
+    # 1280x960
+    # center should be ~ 640 x 480
+    # Cropped: 5%
+    # 1216x912  ~ 608 x 456
+    # Camera intrinsics
+    fx = 3.99156077e+03  #3.99156077e+03  # focal length in x direction
+    fy = 3.98157827e+03  #3.98157827e+03 # focal length in y direction
+    cx = 6.96680719e+02  #6.96680719e+02 # principal point x-coordinate
+    cy = 4.06275392e+02  #4.06275392e+02 # principal point y-coordinate
+    Cam_IntMat = np.array([
+        [fx, 0, cx],
+        [0, fy, cy],
+        [0,  0, 1]
+    ])
+    # Image centroid and depth
+    Z = 730 - 50 #Depth
+    # 730mm Z to End-Effector when taking photo
+    #~50mm distance from camera to end-effector
+    
+    # Back-project to 3D in camera  
+    X_camera = (u - cx) * Z / fx
+    Y_camera = (v - cy) * Z / fy
+    Z_camera = Z
+    # 3D point in the camera frame
+    P_camera = np.array([X_camera, Y_camera, Z_camera, 1])
+    #assuming calibration isn't quite needed...
+    P_cameraDirect = np.array([u,v,Z_camera, 1])
+    
+
+    """
+    #From stack overflow
+    """
+    #https://stackoverflow.com/questions/13419605/how-to-map-x-y-pixel-to-world-cordinates
+    P_tempcamera = np.array([u, v, 1])
+    #multiply intrinsic matrix's inverse to woorld coordinates
+    World_Coord = np.linalg.inv(Cam_IntMat) @ P_tempcamera
+    World_Coord = World_Coord * Z_camera
+    #Somehow is always the same as the first P_camera lol
+    print(f"Testing: {World_Coord}")
+
+    ## From fdxlabs
+    #https://www.fdxlabs.com/calculate-x-y-z-real-world-coordinates-from-a-single-camera-using-opencv/
+    scalFactor = 1/3
+    uv_1=np.array([[u,v,1]], dtype=np.float32).T
+
+    suv_1=scalFactor *uv_1
+
+    xyz_c=np.linalg.inv(Cam_IntMat) @ suv_1
+    tvecs = np.array([[x_base2cam,y_base2cam,0]]).T
+    xyz_c=xyz_c - tvecs
+
+    xtheta = np.deg2rad(180)
+    xcos_theta = np.cos(xtheta)
+    xsin_theta = np.sin(xtheta)
+    Rx = np.array([
+        [1, 0, 0],
+        [0, xcos_theta, -xsin_theta],
+        [0, xsin_theta, xcos_theta],
+    ])
+    ztheta = np.deg2rad(45)
+    zcos_theta = np.cos(ztheta)
+    zsin_theta = np.sin(ztheta)
+    # Rotation around Z-axis:
+    Rz = np.array([
+        [zcos_theta, -zsin_theta, 0],
+        [zsin_theta,  zcos_theta, 0 ],
+        [0,          0,         1],
+    ])
+    #First rotation -> Left-est Matrix mult
+    RMat = Rz @ Rx
+    XYZ= np.linalg.inv(RMat) @ xyz_c
+    print(f"From fdxlabs: {XYZ}")
+    
+    #Proposed inverse formula:
+    # (s* [u,v,1].T @ Cam_IntMat^-1 -t) @ R-1
+
+    ######### Frames
+    #Lecture 2 pg 44 Fundamental rotation matrices:
+    #Rotation around x-axis
+    xtheta = np.deg2rad(180)
+    xcos_theta = np.cos(xtheta)
+    xsin_theta = np.sin(xtheta)
+    Rx = np.array([
+        [1, 0, 0, 0],
+        [0, xcos_theta, -xsin_theta, 0],
+        [0, xsin_theta, xcos_theta, 0],
+        [0,          0,         0, 1]
+    ])
+    #Rotation around y-axis
+    ytheta = np.deg2rad(1)
+    ycos_theta = np.cos(ytheta)
+    ysin_theta = np.sin(ytheta)
+    Ry = np.array([
+        [ycos_theta, 0, ysin_theta, 0],
+        [0,          1, 0,           0],
+        [-ysin_theta, 0, ycos_theta, 0],
+        [0,          0,         0, 1]
+    ])
+    ztheta = np.deg2rad(-45)
+    zcos_theta = np.cos(ztheta)
+    zsin_theta = np.sin(ztheta)
+    # Rotation around Z-axis:
+    Rz = np.array([
+        [zcos_theta, -zsin_theta, 0, 0],
+        [zsin_theta,  zcos_theta, 0, 0],
+        [0,          0,         1, 0],
+        [0,          0,         0, 1]
+    ])
+    #First rotation -> Left-est Matrix mult
+    R = Rz @ Rx
+    #print(f"R:\n {R}")
+
+    # R = Ry @ Rz
+    #I thought this from the hw1 example but it
+    # it doesn't work to this robot's frames...
+    #First-est rotation -> Right-est Matrix Mult # Wrong???
+    
+    #particular rotation matrix
+    """ 
+    R = np.array([
+        [np.cos(theta0), np.cos(theta1), np.cos(theta2), 0],
+        [np.cos(theta3), np.cos(theta4), np.cos(theta5), 0],
+        [np.cos(theta6), np.cos(theta7), np.cos(theta8), 0],
+        [0,            0,             0,              1]
+    ]) """
+    ## From classes: from 0_to_1
+    """ 
+    R = np.array([
+        [X1*X0, Y1*X0, Z1*X0, 0],
+        [X1*Y0, Y1*Y0, Z1*Y0, 0],
+        [X1*Z0, Y1*Z0, Z1*Z0, 0],
+        [0,         0,     0, 1]
+    ]) """
+
+    # Translation
+    T = np.array([
+        [1, 0, 0, x_base2cam],#x
+        [0, 1, 0, y_base2cam],#y
+        [0, 0, 1, z_base2cam],#z
+        [0, 0, 0, 1]
+    ])
+
+    # Transformation matrix
+    T_camera_to_robot = T @ R
+    """ T_camera_to_robot = np.array([
+        [cos_theta, -sin_theta, 0, x_base2cam],#x
+        [sin_theta, cos_theta, 0,  y_base2cam],#y
+        [0, 0, 1,                  z_base2cam],#z
+        [0, 0, 0,                  1]
+    ]) """
+
+    #####
+    """
+    #From stack overflow
+    """
+    #https://stackoverflow.com/questions/7836134/get-3d-coordinates-from-2d-image-pixel-if-extrinsic-and-intrinsic-parameters-are?noredirect=1&lq=1
+    #H = K*[r1, r2, t], 
+    #r1 and r2 being the first two columns of the rotation matrix R
+    #   t is the translation vector.
+    temp = T_camera_to_robot[:, [0,1,3]]
+    temp = np.delete(temp, (3),axis=0)
+    H = Cam_IntMat @ temp
+    projection= H @ [u,v,1]
+    projection = projection / Z
+    print(f"projection:\n {projection}")
+
+    #From Lesson 06 pg59, Robot vision
+    #We just need the x,y values, so in reality it's
+    #   all about a transformation from a point in the camera's frame
+    #   to a point in the robot's
+    #So:
+    # Transform the point from the camera frame to the robot frame
+    P_robot = T_camera_to_robot @ P_camera
+    print(f"T_camera_to_robot:\n {T_camera_to_robot}")
+    print(f"P_Camera:\n {P_camera}")
+    print(f"P_robot:\n ANS = {P_robot}")
+
+    #Robotics guy's approach
+    P_robotDirect = T_camera_to_robot @ P_cameraDirect
+    print(f"**P_cameraDirect:\n {P_cameraDirect}")
+    print(f"P_robotDirect:\n ANS = {P_robotDirect}")
+
+    e_x, e_y, e_z, _ = P_robot
+    e_x, e_y, e_z, _ = P_robotDirect
+    #print(f"Object position in robot's frame: {e_x:.2f}, {e_y:.2f}")
+    return e_x, e_y
 
 def send_script(script):
     arm_node = rclpy.create_node('arm')
@@ -52,14 +272,15 @@ def set_io(state):
 #global vars: #I know... TODO change to something else... but if it works, it works
 ###########
 # Assuming taking image initial position
-currPos = (250,250,550,90) #right arm (near door)
-#currPos = Position(350,350,730,90) #left arm
+#currPos = (250,250,550,90) #right arm (near door)
+currPos = (230,230,730,135) #right arm (near door)
+#currPos = (350,350,730,90) #left arm
 ###########
 #### SOME CONSTANTS:
 ###########
+Z_CUBE = 25#mm half of 25, as the cubes are grabbed from almost the top
 TABLE_Z = 110#mm  #Approx what the gripper to table position would be, 100mm is gripper length
 SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
-Z_CUBE = 25#mm
 ###########
 ### Printing
 cwd = os.getcwd()
@@ -113,7 +334,13 @@ def goGrabObj(x,y,z=TABLE_Z,phi=90):
     openGrip()
     #Now move safely to x,y position of object
     moveTo(x,y,SAFE_Z,phi)
-    moveTo(x,y,z+100,phi)
+    #move slowly to object
+    moveTo(x,y,z+15,phi)
+
+    #to see how close we are
+    moveTo(x,y,z+13,phi)
+    #return
+
     #lower arm & grab
     moveTo(x,y,z,phi)
     closeGrip()
@@ -133,6 +360,7 @@ def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
         x,y,phi = pos
         #Go & grab object
         goGrabObj(x,y,phi=phi)
+        #return
         raiseArm()
 
         #Move (safely above to end position)
@@ -157,6 +385,17 @@ class ImageSub(Node):
         self.get_logger().info('Received image')
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(data)
+
+        #lets try cropping and calculating from shorter values
+        height, width = image.shape[:2]
+        ourPrint(self, f"Image size> { width},{height}")
+        # crops 10% w and h , 5 each corner
+        # crop_x = int(width * 0.05)
+        # crop_y = int(height * 0.05)
+        # image = image[crop_y:height - crop_y, crop_x:width - crop_x]
+        # height, width = image.shape[:2]
+        # ourPrint(self, f"Image size> { width},{height}")
+
         #save photo
         cwd = os.getcwd()
         self.get_logger().info(f"directory> {cwd}")
@@ -212,6 +451,7 @@ class ImageSub(Node):
             contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             #ourPrint(self,f'countours: {contours}',log=False)
+            output = []
             for contour in contours:
                 area = cv2.contourArea(contour)
 
@@ -257,45 +497,59 @@ class ImageSub(Node):
                 self.get_logger().info(f"here")
                 self.get_logger().info(f"Centroid: {adjusted_centroid}, Angle: {angle:.2f} radians")
                 if not x or not y or not angle:
+                    ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
                     return 0,0,0
                 else:
-                    return x,y, angle
+                    #return x,y, angle
+                    output.append([x,y,angle])
             ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
-            return 0,0,0 #
+            return output
 
 
         self.get_logger().info(f"Processing image")
         try:
-            x,y,phi = process_image(image)
+            #x,y,phi = process_image(image)
+            points = process_image(image)
         except Exception as e:
             ourPrint(self,f"Something happened: {e}")
-            x,y,phi = 0,0,0
+            #x,y,phi = 0,0,0
+            points = []
 
-
-        ycam = (((-y)+960))
 
         # x1 = math.cos(math.radians(50))*x/2
-        
-        self.get_logger().info(f"x : {x}, y: {ycam}")
-        x1= ycam/(2.57) + 150 #160
-        y1 = (-x)/(2.57)  + 512 #506
-        #/math.cos(math.radians(50))
-        e = math.degrees(phi)
-        # phi = phi % 45
-        self.get_logger().info(f"{phi}")
-        if( 30 > phi and phi < 60):
-            angle_offset= 45
-        else: angle_offset = 0
-        phi1 = 90.00 + phi #- angle_offset
-        self.get_logger().info(f"{x1}{y1}{phi1}")
-        ourPrint(self,"converted values:")
-        ourPrint(self,f"x1: {x1}")
-        ourPrint(self,f"y1: {y1}")
-        ourPrint(self,f"phi1: {phi1}")
+        objectPoints = []
+        for point in points:
+            x, y, phi = point
+            ycam = (((-y)+960))
+            ourPrint(self,f"x : {x}, y: {ycam}")
+            x1= ycam/(2.57) + 150 #160
+            y1 = (-x)/(2.57)  + 512 #506
+            #/math.cos(math.radians(50))
+            phi = math.degrees(phi) 
+            # phi = phi % 45
+            ourPrint(self,f"phi is {phi}")
+            #correction applied on the center of the image
+            #   where the mass will make the diagonal the bigger mass point
+            # if(3*1280/10 < x < 7*1280/10
+            #     and 3*960/10 < y < 7*960/10
+            #     and 30 <= phi <= 60):
+            #     angle_offset= 45#45
+            #else: angle_offset = 0
+            phi1 = 90.00 + phi #- angle_offset
+            ourPrint(self,f"{x1}{y1}{phi1}")
+            ourPrint(self,"converted values:")
+            ourPrint(self,f"x1: {x1}")
+            ourPrint(self,f"y1: {y1}")
+            ourPrint(self,f"phi1: {phi1}")
+            #objectPoints.append([x1,y1,phi1])
+            x1,y1 = cameraToRobotXYZ(x,y)
+            objectPoints.append([x1,y1,phi])
+
         # # 1 mm = 3 pixels
         # # 10 cm = 300 pixels
         
-        stackObjects([[x1,y1,phi1]])
+        #stackObjects([[x1,y1,phi1]])
+        stackObjects(objectPoints)
         # script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
         # send_script(script)
         #set_io(1.0)
