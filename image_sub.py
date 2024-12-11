@@ -18,8 +18,11 @@ import argparse
 import os
 import time
 
-from .test import(foo,ourPrint)
-from .consts import (OUTPUTFOLDER)
+from .utils import(
+    OUTPUTFOLDER,DEFAULT_THETA,
+    DEFAULT_RHO,TABLE_Z,SAFE_Z,
+    ourPrint)
+#from .movements import (openGrip, closeGrip, moveTo, raiseArm, goGrabObj, goFeed)
 
 ########################################################
 
@@ -50,27 +53,10 @@ def set_io(state):
     gripper_cli.call_async(io_cmd)
     gripper_node.destroy_node()
 
-#################################################################################
+#########################################################################
 ## Utils
 ###########
-###########
-#global vars: #I know... TODO change to something else... but if it works, it works
-###########
-# Assuming taking image initial position
-currPos = (250,250,550,-180,0,135) #right arm (near door)
-# currPos = (230,230,730,135) #right arm (near door)
-#currPos = (350,350,730,90) #left arm
-###########
-#### SOME CONSTANTS:
-###########
-Z_CUBE = 25#mm half of 25, as the cubes are grabbed from almost the top\
-DEFAULT_THETA = 180
-DEFAULT_RHO = 0
-TABLE_Z = 107#mm  #Approx what the gripper to table position would be, 100mm is gripper length
-#toy is smaller
-#spoon= 107
-SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
-###########
+currPos = (250,250,550,-180,0,135) 
 
 #### utils:
 def openGrip():
@@ -96,25 +82,6 @@ def raiseArm():
     x,y,z,theta,rho,phi = currPos
     return moveTo(x,y,SAFE_Z,theta,rho,phi)
 
-def goGrabObjOLD(x,y,z=TABLE_Z,phi=90):
-    """Moves to given position FROM ABOVE & grabs object"""
-    #First raise the arm to avoid collision
-    raiseArm()
-    openGrip()
-    #Now move safely to x,y position of object
-    moveTo(x,y,SAFE_Z,phi)
-    #move slowly to object
-    moveTo(x,y,z+15,phi)
-
-    #to see how close we are
-    moveTo(x,y,z+13,phi)
-    #return
-
-    #lower arm & grab
-    moveTo(x,y,z,phi)
-    closeGrip()
-    return x,y,z,phi
-
 def goGrabObj(x,y,z=TABLE_Z,theta=-180.00,rho=0.0,phi=90):
     """Moves to given position FROM ABOVE & grabs object"""
     print("Grabbing object at ",x,y,z,theta,rho,phi)
@@ -135,29 +102,6 @@ def goGrabObj(x,y,z=TABLE_Z,theta=-180.00,rho=0.0,phi=90):
     closeGrip()
     return x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi
 
-def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
-    """"Expects positions as [x,y,phi], a tuple should also work"""
-    global currPos
-    e_x,e_y,e_z, e_phi = endPosition
-    
-    ourPrint('',f"[stackObjects] Starting with positions: {positions}")
-    for idx,pos in enumerate(positions):
-        x,y,phi = pos
-        #Go & grab object
-        goGrabObj(x,y,phi=phi)
-        #return
-        raiseArm()
-
-        #Move (safely above to end position)
-        moveTo(e_x,e_y, SAFE_Z, e_phi)
-
-        #position cube in table & drop
-        extraZ = idx*Z_CUBE +2#mm #extra height to stack them..
-        moveTo(e_x,e_y, e_z+extraZ, e_phi)
-        openGrip()
-    ourPrint('',f"[stackObjects] Finished sending commands...")
-    return currPos
-
 def grab_food():
     moveTo(250,250,300)
     # Grabe the spoon
@@ -166,15 +110,12 @@ def grab_food():
     moveTo(*movebowl)
     in2bowl = [138.74,468.12,175.47,-151.96,0.41,169.4]
     moveTo(*in2bowl)
-    moveTo(138.74,468.12,175.47,-151.96,0.41,169.4)
 
     out2bowl = [138.74,468.12,175.47,-180.00,0.0,169.4]
     moveTo(*out2bowl)
-    moveTo(138.74,468.12,175.47,-180.00,0.0,169.4)
 
     #move to cat Position
 
-    # Dig 
     # Return centre table
     moveTo(250,250,300)
     return 0
@@ -381,18 +322,7 @@ class ImageSub(Node):
         closeGrip()
         play()
         
-        #stackObjects([[x1,y1,phi1]])
-        # stackObjects(objectPoints)
-        # script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
-        # send_script(script)
-        #set_io(1.0)
-        #targetP1 = f"{x1}, {y1}, 130, -180.00, 0.0, {phi1}"
-        # targetP1 = "250.00, 250, 120, -180.00, 0.0, 135.00"
-        #script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
-        #send_script(script1)
-        #set_io(1.0)
-########################################################################################################################
-
+############################################################################
 def main(args=None):
     rclpy.init(args=args)
     node = ImageSub('image_sub')

@@ -3,17 +3,24 @@
 import os
 import time
 
-#from .send_script import (ourPrint)
-from .consts import (OUTPUTFOLDER)
-
-def foo():
-    print("YOoooooooooo!")
-    ourPrint("YOooooooooooooooo!")
-
-
-### Printing
-
+##################################
+#### CONSTANTS
+cwd = os.getcwd()
+print(f"cwd: {cwd}")
+OUTPUTFOLDER = f"{cwd}/src/send_script/send_script/output/" 
 print(f"outputFolder: {OUTPUTFOLDER}")
+
+#Right arm (close to door) Values:
+DEFAULT_THETA = 180
+DEFAULT_RHO = 0
+TABLE_Z = 107#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
+
+############toy is smaller
+#spoon= 107
+
+###################################
+#Useful Functions
 now = time.time()
 today = time.strftime('%Y-%m-%d',time.localtime(now))
 logfile = f"{today}-log.txt"
