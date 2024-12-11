@@ -1,7 +1,10 @@
 *.pdf
 *.7z
 *.txt
+#folders
 output/
+hw4_team14/
+docs/
 #imgs
 *.jpg
 *.jpeg

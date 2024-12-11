@@ -18,10 +18,10 @@ import argparse
 import os
 import time
 
+from .test import(foo,ourPrint)
+from .consts import (OUTPUTFOLDER)
 
-###############################3
 ########################################################
-
 
 def send_script(script):
     arm_node = rclpy.create_node('arm')
@@ -54,38 +54,23 @@ def set_io(state):
 ## Utils
 ###########
 ###########
+#global vars: #I know... TODO change to something else... but if it works, it works
 ###########
 # Assuming taking image initial position
-currPos = (250,250,550,90) #right arm (near door)
+currPos = (250,250,550,-180,0,135) #right arm (near door)
 # currPos = (230,230,730,135) #right arm (near door)
 #currPos = (350,350,730,90) #left arm
 ###########
 #### SOME CONSTANTS:
 ###########
-Z_CUBE = 25#mm half of 25, as the cubes are grabbed from almost the top
-TABLE_Z = 110#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+Z_CUBE = 25#mm half of 25, as the cubes are grabbed from almost the top\
+DEFAULT_THETA = 180
+DEFAULT_RHO = 0
+TABLE_Z = 107#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+#toy is smaller
+#spoon= 107
 SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
 ###########
-### Printing
-cwd = os.getcwd()
-print(f"cwd: {cwd}")
-outputFolder = f"{cwd}/src/send_script/send_script/output/"
-print(f"outputFolder: {outputFolder}")
-now = time.time()
-today = time.strftime('%Y-%m-%d',time.localtime(now))
-logfile = f"{today}-log.txt"
-#Printing & logging
-def ourPrint(self='',string="",log=True):
-    now = time.time()
-    hour = time.strftime('%H:%M:%S',time.localtime(now))
-    
-    if self:
-        self.get_logger().info(string)
-    else:
-        print(string)
-    if not log: return
-    with open(f'{outputFolder}{logfile}', 'a') as file:
-        file.write(f'[{hour}] {string}\n')
 
 #### utils:
 def openGrip():
@@ -93,25 +78,25 @@ def openGrip():
 def closeGrip():
     set_io(1.0) #1.0 close
 
-def moveTo(x,y,z=SAFE_Z,phi=90):
+def moveTo(x,y,z=SAFE_Z,theta=-180.00,rho=0.0,phi=135):
     """move safely to the position"""
     global currPos
 
-    targetP = f"{x}, {y}, {z}, -180.00, 0.0, {phi}"
+    targetP = f"{x}, {y}, {z}, {theta}, {rho}, {phi}"
     script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
     send_script(script)
 
-    currPos = (x,y,z,phi)
+    currPos = (x,y,z,theta,rho,phi)
     return x,y,z,phi #return as current position
 
 def raiseArm():
     """Raises... the... arm... probs~ iunno"""
     global currPos
 
-    x,y,_,phi = currPos
-    return moveTo(x,y,SAFE_Z,phi)
+    x,y,z,theta,rho,phi = currPos
+    return moveTo(x,y,SAFE_Z,theta,rho,phi)
 
-def goGrabObj(x,y,z=TABLE_Z,phi=90):
+def goGrabObjOLD(x,y,z=TABLE_Z,phi=90):
     """Moves to given position FROM ABOVE & grabs object"""
     #First raise the arm to avoid collision
     raiseArm()
@@ -130,6 +115,25 @@ def goGrabObj(x,y,z=TABLE_Z,phi=90):
     closeGrip()
     return x,y,z,phi
 
+def goGrabObj(x,y,z=TABLE_Z,theta=-180.00,rho=0.0,phi=90):
+    """Moves to given position FROM ABOVE & grabs object"""
+    print("Grabbing object at ",x,y,z,theta,rho,phi)
+    #First raise the arm to avoid collision
+    raiseArm()
+    openGrip()
+    #Now move safely to x,y position of object
+    moveTo(x,y,SAFE_Z,DEFAULT_THETA,DEFAULT_RHO, phi)
+    #move slowly to object
+    moveTo(x,y,z+15,DEFAULT_THETA,DEFAULT_RHO,phi)
+
+    #to see how close we are
+    moveTo(x,y,z+13,DEFAULT_THETA,DEFAULT_RHO,phi)
+    #return
+
+    #lower arm & grab
+    moveTo(x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi)
+    closeGrip()
+    return x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi
 
 def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
     """"Expects positions as [x,y,phi], a tuple should also work"""
@@ -154,6 +158,68 @@ def stackObjects(positions=[],endPosition = [400,400,TABLE_Z,90]):
     ourPrint('',f"[stackObjects] Finished sending commands...")
     return currPos
 
+def grab_food():
+    moveTo(250,250,300)
+    # Grabe the spoon
+    # Moove above the bowl
+    movebowl = [134.43,378.39,263.67,-157.4,0.29,169.38]
+    moveTo(*movebowl)
+    in2bowl = [138.74,468.12,175.47,-151.96,0.41,169.4]
+    moveTo(*in2bowl)
+    moveTo(138.74,468.12,175.47,-151.96,0.41,169.4)
+
+    out2bowl = [138.74,468.12,175.47,-180.00,0.0,169.4]
+    moveTo(*out2bowl)
+    moveTo(138.74,468.12,175.47,-180.00,0.0,169.4)
+
+    #move to cat Position
+
+    # Dig 
+    # Return centre table
+    moveTo(250,250,300)
+    return 0
+
+     
+def play(seconds=3):
+  #1. Rx : -150° TIlt downwards
+  #2.  ⁠Rz : 15 -> 60° move toy around
+  #3. ⁠repeat 2 back and forth
+  center = (250,250,350,-171,0,135)
+  moveTo(*center)
+  #playDownwards
+  play1 = (250,250,200,-171,0,160)
+  moveTo(*play1)
+  play2 = (250,250,200,-171,0,100)
+  moveTo(*play2)
+
+  #play upwards
+  moveUp = (250,250,200,160,0,135)
+  moveTo(*moveUp)
+  play3 = (250,250,200,160,0,160)
+  moveTo(*play3)
+  play4 = (250,250,200,160,0,100)
+  moveTo(*play4)
+
+  #Rectangle movement
+  #rightLowerCorner = (565,140,200,180,0,135)
+  rightLowerCorner = (565,140,200,180,0,60)
+  moveTo(*rightLowerCorner)
+  rightUpperCorner = (565,140,600,180,0,60)
+  moveTo(*rightUpperCorner)
+
+  #leftUpperCorner = (115,665,600,180,0,135)
+  leftUpperCorner = (115,665,600,180,0,200)
+  moveTo(*leftUpperCorner)
+  leftLowerCorner = (115,665,200,180,0,200)
+  moveTo(*leftLowerCorner)
+  moveTo(*center)
+
+  #X movement
+  moveTo(*rightUpperCorner)
+  moveTo(*rightLowerCorner)
+  moveTo(*leftUpperCorner)
+  moveTo(*leftLowerCorner)
+  moveTo(*center)
 
 class ImageSub(Node):
     def __init__(self, nodeName):
@@ -182,9 +248,10 @@ class ImageSub(Node):
         self.get_logger().info(f"directory> {cwd}")
         rightnow = time.time()
         formatted = time.strftime('%Y-%m-%d-%H_%M_%S',time.localtime(rightnow))
-        cv2.imwrite(f"{outputFolder}image{formatted}.jpg",image)
+        cv2.imwrite(f"{OUTPUTFOLDER}image{formatted}.jpg",image)
         self.get_logger().info("debug")
         #return
+
 
         def process_image(image):
 
@@ -269,7 +336,7 @@ class ImageSub(Node):
             return output
 
 
-        self.get_logger().info(f"Processing image")
+        # self.get_logger().info(f"Processing image")
         try:
             #x,y,phi = process_image(image)
             points = process_image(image)
@@ -279,42 +346,51 @@ class ImageSub(Node):
             points = []
 
 
-        # List to store converted object points
+        #x1 = math.cos(math.radians(50))*x/2
         objectPoints = []
-
-        # Loop through all detected points
         for point in points:
-            x, y, phi = point  # Extract x, y, and angle phi for the point
+            x, y, phi = point
+            ycam = (((-y)+960))
+            ourPrint(self,f"x : {x}, y: {ycam}")
+            x1= ycam/(2.57) + 152 #160
+            y1 = (-x)/(2.57)  + 505 #506
+            #/math.cos(math.radians(50)) 
+            # phi = phi % 45
+            ourPrint(self,f"phi is {phi}")
+            #correction applied on the center of the image
+            #   where the mass will make the diagonal the bigger mass point
+            # if(3*1280/10 < x < 7*1280/10
+            #     and 3*960/10 < y < 7*960/10
+            #     and 30 <= phi <= 60):
+            #     angle_offset= 45#45
+            #else: angle_offset = 
+            phi1 = phi#90.00 + phi
+            ourPrint(self,f"{x1}{y1}{phi1}")
+            ourPrint(self,"converted values:")
+            ourPrint(self,f"x1: {x1}")
+            ourPrint(self,f"y1: {y1}")
+            ourPrint(self,f"phi1: {phi1}")
+            #objectPoints.append([x1,y1,phi1])
+            # x1,y1 = cameraToRobotXYZ(x,y)
+            objectPoints.append([x1,y1,TABLE_Z,-180,0,phi])
 
-            # Adjust the y-coordinate for the camera's reference system
-            ycam = (((-y) + 960))  
-            
-            # Log the original and adjusted coordinates for debugging
-            ourPrint(self, f"x : {x}, y: {ycam}")
-            
-            # Transform coordinates to the robot's reference system
-            x1 = ycam / 2.57 + 152  # Scale and offset y-coordinate
-            y1 = (-x) / 2.57 + 505  # Scale and offset x-coordinate
-
-            # Log the angle for debugging
-            ourPrint(self, f"phi is {phi}")
-            
-            # Adjust the angle for the robot's reference system
-            phi1 = 90.00 + phi  
-
-            # Log the converted coordinates and angle
-            ourPrint(self, f"{x1}{y1}{phi1}")
-            ourPrint(self, "converted values:")
-            ourPrint(self, f"x1: {x1}")
-            ourPrint(self, f"y1: {y1}")
-            ourPrint(self, f"phi1: {phi1}")
-            
-            # Append the converted point (x1, y1, phi1) to the object points list
-            objectPoints.append([x1, y1, phi])
-
-        # Send the list of converted object points to the stacking function
-        stackObjects(objectPoints)
+        # # 1 mm = 3 pixels
+        # # 10 cm = 300 pixels
+        #goGrabObj(*objectPoints[0])
+        #grab_food()
+        closeGrip()
+        play()
         
+        #stackObjects([[x1,y1,phi1]])
+        # stackObjects(objectPoints)
+        # script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
+        # send_script(script)
+        #set_io(1.0)
+        #targetP1 = f"{x1}, {y1}, 130, -180.00, 0.0, {phi1}"
+        # targetP1 = "250.00, 250, 120, -180.00, 0.0, 135.00"
+        #script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+        #send_script(script1)
+        #set_io(1.0)
 ########################################################################################################################
 
 def main(args=None):
