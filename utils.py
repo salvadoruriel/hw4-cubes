@@ -9,6 +9,7 @@ cwd = os.getcwd()
 print(f"cwd: {cwd}")
 OUTPUTFOLDER = f"{cwd}/src/send_script/send_script/output/" 
 print(f"outputFolder: {OUTPUTFOLDER}")
+INPUTFOLDER = f"{cwd}/src/send_script/send_script/input/"
 
 #Right arm (close to door) Values:
 DEFAULT_THETA = 180

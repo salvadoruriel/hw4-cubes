@@ -8,6 +8,8 @@ sys.path.append('/home/robot/colcon_ws/install/tm_msgs/lib/python3.6/site-packag
 from tm_msgs.msg import *
 from tm_msgs.srv import *
 
+from .utils import(INPUTFOLDER,ourPrint)
+
 # arm client
 def send_script(script):
     arm_node = rclpy.create_node('arm')
@@ -60,8 +62,23 @@ def main(args=None):
 
 # What does Vision_DoJob do? Try to use it...
 # -------------------------------------------------
-    send_script("Vision_DoJob(job1)")
-    cv2.waitKey(1)
+    while True:
+        try:
+            #save a command to a file before calling vision Do_job
+            with open(f"{INPUTFOLDER}commands.txt", "rw") as file:
+                command = file.read()
+                if command:
+                    ourPrint("[send_script] File 'commands.txt' is not empty, waiting...")
+                    time.sleep(6)
+                    continue
+                else:
+                    #file.write("play")
+                    file.write("feed")
+            send_script("Vision_DoJob(job1)")
+        except Exception as e:
+            ourPrint("Error opening file")
+
+        time.sleep(3)
 
 #--------------------------------------------------
 

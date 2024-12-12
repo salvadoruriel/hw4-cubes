@@ -19,8 +19,9 @@ import os
 import time
 
 from .utils import(
-    OUTPUTFOLDER,DEFAULT_THETA,
-    DEFAULT_RHO,TABLE_Z,SAFE_Z,
+    OUTPUTFOLDER,INPUTFOLDER,
+    DEFAULT_THETA,DEFAULT_RHO,
+    TABLE_Z,SAFE_Z,
     ourPrint)
 #from .movements import (openGrip, closeGrip, moveTo, raiseArm, goGrabObj, goFeed)
 
@@ -176,6 +177,18 @@ class ImageSub(Node):
         self.get_logger().info('Received image')
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(data)
+
+        try:
+            with open(f"{INPUTFOLDER}commands.txt", "r") as file:
+                command = file.read()
+                if not command:
+                    ourPrint("[image_callback] NO command, quit... & await instruction")
+                    return
+            #we have a command, consume, use & empty the file
+            with open(f"{INPUTFOLDER}commands.txt", "w") as file:
+                command = file.write("")
+        except Exception as e:
+            ourPrint("Error opening file")
 
         #lets try cropping and calculating from shorter values
         height, width = image.shape[:2]
