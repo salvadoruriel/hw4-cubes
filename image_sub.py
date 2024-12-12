@@ -56,7 +56,8 @@ def set_io(state):
 #########################################################################
 ## Utils
 ###########
-currPos = (250,250,550,-180,0,135) 
+PHOTO_POS = (250,250,550,-180,0,90) 
+currPos = (250,250,550,-180,0,90) 
 
 #### utils:
 def openGrip():
@@ -67,6 +68,8 @@ def closeGrip():
 def moveTo(x,y,z=SAFE_Z,theta=-180.00,rho=0.0,phi=135):
     """move safely to the position"""
     global currPos
+    if z < TABLE_Z:
+       z = TABLE_Z
 
     targetP = f"{x}, {y}, {z}, {theta}, {rho}, {phi}"
     script = "PTP(\"CPP\","+targetP+",100,200,0,false)"
