@@ -64,6 +64,21 @@ def set_io(state):
 PHOTO_POS = (250,250,550,-180,0,90) 
 currPos = (250,250,550,-180,0,90) 
 
+def read_aruco_marker(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_5X5_50)
+    aruco_params = cv2.aruco.DetectorParameters()
+    corners, ids, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=aruco_params)
+
+    markers = []
+    if ids is not None:
+        for i, marker_id in enumerate(ids):
+            # Extract the corner points and compute the centroid
+            corner = corners[i][0]
+            centroid = np.mean(corner, axis=0).astype(int)
+            markers.append((marker_id[0], centroid))
+    return markers
+
 class ImageSub(Node):
     def __init__(self, nodeName):
         super().__init__(nodeName)
@@ -76,6 +91,7 @@ class ImageSub(Node):
         bridge = CvBridge()
         image = bridge.imgmsg_to_cv2(data)
 
+        command = ""
         try:
             with open(f"{INPUTFOLDER}commands.txt", "r") as file:
                 command = file.read()
@@ -108,89 +124,174 @@ class ImageSub(Node):
         self.get_logger().info("debug")
         #return
 
-
+        contour_area_threshold = 1000
         def process_image(image):
 
             height, width = image.shape[:2]
-            print(height)
-            print(width)
+
             # Crop 5% from each side
             crop_x = int(width * 0.05)
             crop_y = int(height * 0.05)
-            cropped_image = image[crop_y:height - crop_y, crop_x:width - crop_x]
+            cropped_image = image[crop_y : height - crop_y, crop_x : width - crop_x]
 
-            # Convert to grayscale
-            gray = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
+            # Detect ArUco markers
+            aruco_markers = read_aruco_marker(cropped_image)
+            print(f"Number of ArUco markers detected: {len(aruco_markers)}")
 
-            # Apply Gaussian blur to reduce noise
-            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            # Convert to HSV color space
+            hsv = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2HSV)
 
-            # Apply adaptive thresholding to handle different lighting conditions
-            binary = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                        cv2.THRESH_BINARY_INV, 11, 2)
+            # Define range for white color and create a mask
+            # Adjusted HSV values for better detection
+            lower_white = np.array([0, 0, 150])  # Broadened lower threshold
+            upper_white = np.array([180, 80, 255])  # Broadened upper threshold
+            mask = cv2.inRange(hsv, lower_white, upper_white)
 
-            # Apply morphological operations to remove small noise
-            kernel = np.ones((3, 3), np.uint8)
-            binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-
+            # Apply morphological operations to clean up the mask
+            kernel = np.ones((5, 5), np.uint8)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
             # Find contours
-            contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-            #ourPrint(self,f'countours: {contours}',log=False)
-            output = []
+            marker_to_contour = {}
+            contour_assignments = {}
+            print("Test")
+
             for contour in contours:
                 area = cv2.contourArea(contour)
+                x, y, w, h = cv2.boundingRect(contour)
+                spoonpos = (0, 0)
+                toypos = (0, 0)
+                spoonposx = 0
+                spoonposy = 0
+                toyposx = 0
+                toyposy  = 0
+                # Initialize spoon and toy positions as tuples
+                spoonpos = (0, 0)
+                toypos = (0, 0)
+
+                # Extract marker positions
+                marker1_id, marker1_centroid = aruco_markers[0]
+                marker2_id, marker2_centroid = aruco_markers[1]
+                print(f"{marker1_centroid}")
+                print(f"{marker2_centroid}")
+                # Assign positions based on marker IDs
+                toypos = marker1_centroid
+                spoonpos = marker2_centroid
+
+                # Decompose the tuples into x and y components
+                spoonposx, spoonposy = spoonpos
+                toyposx, toyposy = toypos
+                area = cv2.contourArea(contour)
+                print(f"{x}")
+                print(f"{spoonposx}")
+                print(f"{toyposx}")
+
+
+
 
                 # Ignore small contours that may be noise
-                if area < 1000:  # Adjust minimum area as needed
+                if area < 1000 or (x < 1 and y < 1) or (x > spoonposx + 1 and x < spoonposx - 1) or (y > spoonposy + 1 and y < spoonposy - 1) or (y > toyposy + 1 and y < toyposy - 1) or (x > toyposx + 1 and x < toyposx - 1):
                     continue
 
-                # Get the minimum area rectangle
-                rect = cv2.minAreaRect(contour)
-                box = cv2.boxPoints(rect)
-                box = np.array([[int(point[0] + crop_x), int(point[1] + crop_y)] for point in box])
-                
-                # Dimensions of the rectangle
-                width, height = rect[1]  # rect[1] contains (width, height)
+                adjusted_contour = contour + np.array([[crop_x, crop_y]])
 
-                # Ensure the longer side is treated as the base
-                if width < height:
-                    angle = rect[2] + 90  # Adjust angle for consistent base alignment
+                # Calculate the centroid of the contour
+                M = cv2.moments(adjusted_contour)
+                if M["m00"] != 0:
+                    contour_centroid = (
+                        int(M["m10"] / M["m00"]),
+                        int(M["m01"] / M["m00"]),
+                    )
                 else:
-                    angle = rect[2]
+                    contour_centroid = (0, 0)
 
-                # Normalize the angle to ensure it's measured from the horizontal axis
-                if angle < 0:
-                    angle += 180  # Ensure angle is positive and within [0, 180]
+                # Convert contour points to float32 for PCA
+                data_points = adjusted_contour.reshape(-1, 2).astype(np.float32)
 
-                centroid = (int(rect[0][0])+crop_x, int(rect[0][1])+crop_y)
-                x = centroid[0]
-                y = centroid[1]    
-                print(f"{angle}")
+                # Calculate angle using PCA
+                mean, eigenvectors = cv2.PCACompute(data_points, mean=None)
+                principal_axis = eigenvectors[0]  # Primary eigenvector
+                angle = -np.degrees(np.arctan2(principal_axis[1], principal_axis[0]))
+
+                # Get the minimum area rectangle
+                rect = cv2.minAreaRect(adjusted_contour)
+                box = cv2.boxPoints(rect).astype(int)
+
+                # Find closest marker for each contour
+                closest_marker = None
+                min_distance = float("inf")
+                for marker_id, marker_centroid in aruco_markers:
+                    dist = np.linalg.norm(
+                        np.array(marker_centroid) - np.array(contour_centroid)
+                    )
+                    if dist < min_distance:
+                        closest_marker = (marker_id, marker_centroid)
+                        min_distance = dist
+
+                if closest_marker and closest_marker[0] not in contour_assignments:
+                    marker_to_contour[closest_marker[0]] = contour_centroid
+                    contour_assignments[closest_marker[0]] = (
+                        adjusted_contour,
+                        contour_centroid,
+                        rect,
+                        box,
+                        angle,
+                    )
+
+            output = []
+            for marker_id, (
+                contour,
+                new_centroid,
+                rect,
+                box,
+                angle,
+            ) in contour_assignments.items():
+                # Draw contours
+                cv2.drawContours(image, [contour], 0, (255, 0, 0), 2)
+
                 # Draw bounding box
                 cv2.drawContours(image, [box], 0, (0, 255, 0), 2)
-                
+
                 # Draw centroid
-                cv2.circle(image, centroid, 5, (0, 0, 255), -1)
+                cv2.circle(image, new_centroid, 5, (0, 0, 255), -1)
 
-                # Display the final image with contours and angles for debugging
-                cv2.imshow("Result", image)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+                # Calculate full-length line endpoints
+                angle_radians = np.radians(angle)
+                x1 = int(new_centroid[0] - width * np.cos(angle_radians))
+                y1 = int(new_centroid[1] + width * np.sin(angle_radians))
+                x2 = int(new_centroid[0] + width * np.cos(angle_radians))
+                y2 = int(new_centroid[1] - width * np.sin(angle_radians))
 
-                # Print the centroid and angle
-                self.get_logger().info(f"here")
-                self.get_logger().info(f"Centroid: {centroid}, Angle: {angle:.2f} radians")
-                if not x or not y or not angle:
-                    ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
-                    return 0,0,0
-                else:
-                    #return x,y, angle
-                    output.append([x,y,angle])
-            ourPrint(self,f'No centroids found. Maybe objects were not present in the camera range')
+                # Draw full-length line
+                cv2.line(image, (x1, y1), (x2, y2), (0, 165, 255), 2)  # Orange color in BGR
+
+                # Draw marker ID near the centroid
+                text_position = (new_centroid[0] + 10, new_centroid[1] - 10)  # Slightly offset
+                cv2.putText(
+                    image,
+                    f"ID: {marker_id}",
+                    text_position,
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,  # Font size
+                    (255, 51, 204),
+                    3,  # Thickness
+                    cv2.LINE_AA,
+                )
+
+                # Append the marker id, centroid, and angle
+                output.append((marker_id, new_centroid, angle))
+
+            # Display the image with all annotations
+            cv2.imshow("Result", image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
             return output
 
+        
 
         # self.get_logger().info(f"Processing image")
         try:
@@ -201,11 +302,12 @@ class ImageSub(Node):
             #x,y,phi = 0,0,0
             points = []
 
-
+        self.get_logger().info(f"{points}")
         #x1 = math.cos(math.radians(50))*x/2
         objectPoints = []
         for point in points:
-            x, y, phi = point
+            x, y = point[1]
+            phi = point[2]
             ycam = (((-y)+960))
             ourPrint(self,f"x : {x}, y: {ycam}")
             x1= ycam/(2.57) + 152 #160
@@ -240,7 +342,9 @@ class ImageSub(Node):
         if command == "play":
             playDynamic()
         elif command == "feed":
-            goFeed()
+            grab_food()
+        else:
+            ourPrint(f'[ERR] Non recognized command "{command}"')
         
 ############################################################################
 def main(args=None):
