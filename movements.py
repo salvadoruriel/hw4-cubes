@@ -2,13 +2,8 @@ from .utils import(
     OUTPUTFOLDER,DEFAULT_THETA,
     DEFAULT_RHO,TABLE_Z,SAFE_Z,
     ourPrint)
-#from image_sub import (set_io, send_script)
 from .send_script import (set_io, send_script)
-"""
-This file exists as a separate copy of the movements to do...
-TODO:
-Import send_script & set_io properly from send_script to make this file work
-"""
+import math
 
 #File with all movements for the robot
 def openGrip():
@@ -134,6 +129,29 @@ def play(seconds=3):
   moveTo(*leftLowerCorner)
   moveTo(*center)
 
+def points_above_below(x0, y0, h, angle):
+    """get points to the sides,
+        assuming angle 0 is looking to the side like "|"
+    """
+    # Convert angle to radians
+    radians = math.radians(angle)
+    
+    # Calculate the offsets
+    dx = h * math.sin(radians)
+    dy = h * math.cos(radians)
+    
+    # Calculate the above and below points
+    above = (x0 + dx, y0 + dy)
+    below = (x0 - dx, y0 - dy)
+    
+    return above, below
+
+# Example usage:
+above, below = points_above_below(5, 5, 5, -45)
+above, below = points_above_below(250, 250, 350, -(135-45))
+print("Above:", above)
+print("Below:", below)
+
 def playDynamic(x=250,y=250,z=350,theta=-179,rho=0,phi=135):
   """
   Given a center focus position, it will play around that area
@@ -172,8 +190,8 @@ def playDynamic(x=250,y=250,z=350,theta=-179,rho=0,phi=135):
   x2,y2 = below
   rightLowerCorner = (x2,y2,z-150, theta,0,phi-60)
   rightUpperCorner = (x2,y2,z+250, theta,0,phi-60)
-  leftLowerCorner = (x1,y1,z-150, theta,0,phi-60)
-  leftUpperCorner = (x1,y1,z+250, theta,0,phi-60)
+  leftLowerCorner = (x1,y1,z-150, theta,0,phi+60)
+  leftUpperCorner = (x1,y1,z+250, theta,0,phi+60)
   #Rectangle Movement
   moveTo(*rightLowerCorner)
   moveTo(*rightUpperCorner)
@@ -185,27 +203,3 @@ def playDynamic(x=250,y=250,z=350,theta=-179,rho=0,phi=135):
   moveTo(*leftUpperCorner)
   moveTo(*leftLowerCorner)
   moveTo(*center)
-
-import math
-
-def points_above_below(x0, y0, h, angle):
-    """get points to the sides,
-        assuming angle 0 is looking to the side like "|"
-    """
-    # Convert angle to radians
-    radians = math.radians(angle)
-    
-    # Calculate the offsets
-    dx = h * math.sin(radians)
-    dy = h * math.cos(radians)
-    
-    # Calculate the above and below points
-    above = (x0 + dx, y0 + dy)
-    below = (x0 - dx, y0 - dy)
-    
-    return above, below
-
-# Example usage:
-above, below = points_above_below(5, 5, 5, -45)
-print("Above:", above)
-print("Below:", below)

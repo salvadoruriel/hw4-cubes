@@ -65,26 +65,29 @@ def main(args=None):
     while True:
         try:
             #save a command to a file before calling vision Do_job
-            with open(f"{INPUTFOLDER}commands.txt", "rw") as file:
+            with open(f"{INPUTFOLDER}commands.txt", "w+") as file:
                 command = file.read()
                 if command:
-                    ourPrint("[send_script] File 'commands.txt' is not empty, waiting...")
+                    ourPrint('',"[send_script] File 'commands.txt' is not empty, waiting...")
                     time.sleep(6)
                     continue
                 else:
-                    #file.write("play")
-                    file.write("feed")
+                    file.write("play")
+                    #file.write("feed")
             send_script("Vision_DoJob(job1)")
+            rclpy.shutdown()
         except Exception as e:
-            ourPrint("Error opening file")
+            ourPrint('',f"Error opening file: {e}")
 
         time.sleep(3)
+    #send_script("Vision_DoJob(job1)")
+    #cv2.waitKey(1)
 
 #--------------------------------------------------
 
     #set_io(1.0) # 1.0: close gripper, 0.0: open gripper
     # set_io(0.0)
-    rclpy.shutdown()
+    #rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
