@@ -14,7 +14,7 @@ INPUTFOLDER = f"{cwd}/src/send_script/send_script/input/"
 #Right arm (close to door) Values:
 DEFAULT_THETA = 180
 DEFAULT_RHO = 0
-TABLE_Z = 107#mm  #Approx what the gripper to table position would be, 100mm is gripper length
+TABLE_Z = 99#mm  #Approx what the gripper to table position would be, 100mm is gripper length
 SAFE_Z = 500#mm   #USE THIS ONE FOR MOVING AROUND
 
 ############toy is smaller
@@ -31,7 +31,8 @@ def ourPrint(self='',string="",log=True):
     hour = time.strftime('%H:%M:%S',time.localtime(now))
     
     if self:
-        self.get_logger().info(string)
+        print(string)
+        #self.get_logger().info(string)
     else:
         print(string)
     if not log: return

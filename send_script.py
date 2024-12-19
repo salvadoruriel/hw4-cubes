@@ -41,7 +41,8 @@ def set_io(state):
 
 def main(args=None):
 
-    rclpy.init(args=args)
+    while True:
+        rclpy.init(args=args)
 
     #--- move command by joint angle ---#
     # script = 'PTP(\"JPP\",45,0,90,0,90,0,35,200,0,false)'
@@ -53,41 +54,42 @@ def main(args=None):
     # For right arm: targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
     # For left  arm: targetP1 = "350.00, 350, 730, -180.00, 0.0, 135.00"
     # targetP1 = "250.00, 250, 550, -180.00, 0.0, 135.00"
-    targetP1 = "250.00, 250, 550, -180.00, 0.0, 90.00"
+        targetP1 = "250.00, 250, 550, -180.00, 0.0, 90.00"
 
-    # targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
-    script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
-    set_io(1.0)
-    send_script(script1)
+        # targetP1 = "230.00, 230, 730, -180.00, 0.0, 135.00"
+        script1 = "PTP(\"CPP\","+targetP1+",100,200,0,false)"
+        #set_io(1.0)
+        send_script(script1)
 
 # What does Vision_DoJob do? Try to use it...
 # -------------------------------------------------
-    while True:
-        try:
-            #save a command to a file before calling vision Do_job
-            with open(f"{INPUTFOLDER}commands.txt", "w+") as file:
-                command = file.read()
-                if command:
-                    ourPrint('',"[send_script] File 'commands.txt' is not empty, waiting...")
-                    time.sleep(6)
-                    continue
-                else:
-                    file.write("play")
-                    #file.write("feed")
-            send_script("Vision_DoJob(job1)")
-            rclpy.shutdown()
-        except Exception as e:
-            ourPrint('',f"Error opening file: {e}")
+    # while True:
+    #     try:
+    #         #save a command to a file before calling vision Do_job
+    #         with open(f"{INPUTFOLDER}commands.txt", "rw") as file:
+    #             command = file.read()
+    #             if command:
+    #                 ourPrint("","[send_script] File 'commands.txt' is not empty, waiting...")
+    #                 time.sleep(6)
+    #                 continue
+    #             else:
+    #                 file.write("play")
+    #                 #file.write("feed")
+    #         send_script("Vision_DoJob(job1)")
+    #     except Exception as e:
+    #         ourPrint("","Error opening file")
 
-        time.sleep(3)
-    #send_script("Vision_DoJob(job1)")
-    #cv2.waitKey(1)
+    #     time.sleep(3)
+
+        send_script("Vision_DoJob(job1)")
+        cv2.waitKey(1)
 
 #--------------------------------------------------
 
     #set_io(1.0) # 1.0: close gripper, 0.0: open gripper
     # set_io(0.0)
-    #rclpy.shutdown()
+        rclpy.shutdown()
+        time.sleep(6)
 
 if __name__ == '__main__':
     main()

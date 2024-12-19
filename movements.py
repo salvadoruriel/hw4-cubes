@@ -2,8 +2,16 @@ from .utils import(
     OUTPUTFOLDER,DEFAULT_THETA,
     DEFAULT_RHO,TABLE_Z,SAFE_Z,
     ourPrint)
+#from image_sub import (set_io, send_script)
 from .send_script import (set_io, send_script)
 import math
+"""
+This file exists as a separate copy of the movements to do...
+TODO:
+Import send_script & set_io properly from send_script to make this file work
+"""
+PHOTO_POS = (250,250,550,-180,0,90) 
+currPos = (250,250,550,-180,0,90) 
 
 #File with all movements for the robot
 def openGrip():
@@ -49,6 +57,28 @@ def goGrabObj(x,y,z=TABLE_Z,theta=-180.00,rho=0.0,phi=90):
     #lower arm & grab
     moveTo(x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi)
     closeGrip()
+    #avoid rising or other movements too fast
+    moveTo(x,y,z+1,DEFAULT_THETA,DEFAULT_RHO,phi+1)
+    moveTo(x,y,z+2,DEFAULT_THETA,DEFAULT_RHO,phi-1)
+    return x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi
+
+def goDropObj(x,y,z=TABLE_Z,theta=-180.00,rho=0.0,phi=90):
+    """Moves to given position FROM ABOVE & Drops"""
+    print("Grabbing object at ",x,y,z,theta,rho,phi)
+    #First raise the arm to avoid collision
+    raiseArm()
+    #Now move safely to x,y position of object
+    moveTo(x,y,SAFE_Z,DEFAULT_THETA,DEFAULT_RHO, phi)
+    #move slowly to object
+    moveTo(x,y,z+15,DEFAULT_THETA,DEFAULT_RHO,phi)
+
+    #to see how close we are
+    moveTo(x,y,z+13,DEFAULT_THETA,DEFAULT_RHO,phi)
+    #return
+
+    #lower arm & drop
+    moveTo(x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi)
+    openGrip()
     return x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi
 
 
