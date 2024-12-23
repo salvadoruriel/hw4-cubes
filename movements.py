@@ -30,7 +30,8 @@ def moveTo(x,y,z=SAFE_Z,theta=-180.00,rho=0.0,phi=135):
     send_script(script)
 
     currPos = (x,y,z,theta,rho,phi)
-    return x,y,z,phi #return as current position
+    #return as current position
+    return x,y,z,DEFAULT_THETA,DEFAULT_RHO,phi
 
 def raiseArm():
     """Raises... the... arm... probs~ iunno"""
@@ -207,14 +208,6 @@ def playDynamic(x=250,y=250,z=350,theta=-179,rho=0,phi=135):
   moveTo(*upSwipe2)
 
   moveTo(*center)
-  #rightLowerCorner = (565,140,200,180,0,60)
-  #rightUpperCorner = (565,140,600,180,0,60)
-  #leftUpperCorner = (115,665,600,180,0,200)
-  #leftLowerCorner = (115,665,200,180,0,200)
-  #rightLowerCorner = (x+150,y-100,z-150, theta,0,phi-60)
-  #rightUpperCorner = (x+150,y-100,z+250, theta,0,phi-60)
-  #leftUpperCorner = (x-150,y+100,z-150, theta,0,phi+60)
-  #leftLowerCorner = (115,665,200,180,0,200)
   above,below = points_above_below(x,y,130,-(phi-45))
   x1,y1 = above
   x2,y2 = below

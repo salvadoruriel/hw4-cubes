@@ -31,8 +31,8 @@ def ourPrint(self='',string="",log=True):
     hour = time.strftime('%H:%M:%S',time.localtime(now))
     
     if self:
-        print(string)
-        #self.get_logger().info(string)
+        #try to use the default robot's logging function
+        self.get_logger().info(string)
     else:
         print(string)
     if not log: return
